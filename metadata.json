@@ -1,0 +1,6 @@
+{
+  "name": "Syntropic AI - Talent Intelligence & Recruitment Dashboard",
+  "description": "Dashboard empresarial para reclutamiento con evaluación de candidatos mediante agentes de IA, gestión de vacantes, enlaces dinámicos de un solo uso y proyecto completo en Streamlit.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

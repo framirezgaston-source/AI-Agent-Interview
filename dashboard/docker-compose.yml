@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  streamlit-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: syntropic_streamlit_dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://fastapi-backend:8000/api/v1
+      - API_TIMEOUT=5
+    restart: unless-stopped
+    volumes:
+      - .:/app
