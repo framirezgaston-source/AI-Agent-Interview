@@ -232,10 +232,33 @@ export const PosicionesView: React.FC<PosicionesViewProps> = ({
               </div>
               <button
                 type="button"
-                className="mt-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold shadow-xs"
+                className="mt-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold shadow-xs cursor-pointer"
               >
                 Explorar Archivos Locales
               </button>
+            </div>
+
+            {/* Quick Sample PDF Download Helper */}
+            <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-blue-600 text-[22px]">picture_as_pdf</span>
+                <div>
+                  <span className="text-xs font-bold text-slate-900 block">
+                    PDF de Ejemplo Generado: AI Engineer Spec
+                  </span>
+                  <span className="text-[11px] text-slate-600">
+                    Estándares, arquitectura RAG híbrido, FastAPI y banco de preguntas de Franja Automations.
+                  </span>
+                </div>
+              </div>
+              <a
+                href="/IA_Engineer_Knowledge_Base_Franja_Automations.pdf"
+                download="IA_Engineer_Knowledge_Base_Franja_Automations.pdf"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">download</span>
+                <span>Descargar PDF</span>
+              </a>
             </div>
 
             {/* Uploaded Files Roster */}

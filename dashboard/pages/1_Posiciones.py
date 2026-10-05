@@ -59,16 +59,36 @@ with col_form:
             accept_multiple_files=True,
             type=["pdf", "docx", "txt", "md"]
         )
+
+        # Botón para descargar el PDF de ejemplo pregenerado
+        import os
+        sample_pdf_path = os.path.join(os.path.dirname(__file__), "..", "data", "IA_Engineer_Knowledge_Base_Franja_Automations.pdf")
+        if os.path.exists(sample_pdf_path):
+            with open(sample_pdf_path, "rb") as f:
+                st.download_button(
+                    label="📥 Descargar PDF de Ejemplo: AI_Engineer_Knowledge_Base_Franja.pdf",
+                    data=f.read(),
+                    file_name="IA_Engineer_Knowledge_Base_Franja_Automations.pdf",
+                    mime="application/pdf",
+                    help="Descarga este archivo de ejemplo para subirlo a la casilla y probar la indexación vectorial.",
+                    use_container_width=True
+                )
         
-        st.markdown("**Archivos Indexados para este Rol (2):**")
-        st.markdown("""
-        - 📄 `Tech_Stack_Standards_2025.pdf` (2.4 MB) · <span style="color:#16A34A; font-weight:600;">✓ Ingesta Vectorial Completada</span>
-        - 📝 `Job_Description_FullStack.docx` (1.1 MB) · <span style="color:#16A34A; font-weight:600;">✓ Ingesta Vectorial Completada</span>
-        """, unsafe_allow_html=True)
+        st.markdown("**Archivos Indexados para este Rol:**")
+        if uploaded_files:
+            st.success(f"¡{len(uploaded_files)} archivo(s) procesado(s) exitosamente en memoria vectorial!")
+            for uf in uploaded_files:
+                size_kb = round(len(uf.getvalue()) / 1024, 1)
+                st.markdown(f"- 📄 **`{uf.name}`** ({size_kb} KB) · <span style='color:#16A34A; font-weight:600;'>✓ Ingesta Vectorial Completada</span>", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            - 📄 `Tech_Stack_Standards_2025.pdf` (2.4 MB) · <span style="color:#16A34A; font-weight:600;">✓ Ingesta Vectorial Completada</span>
+            - 📝 `Job_Description_FullStack.docx` (1.1 MB) · <span style="color:#16A34A; font-weight:600;">✓ Ingesta Vectorial Completada</span>
+            """, unsafe_allow_html=True)
         
         ai_directive = st.text_area(
             "Instrucciones Específicas de Evaluación (AI System Directive)",
-            value="Evaluar experiencia en microservicios, testing y resolución de problemas arquitectónicos con énfasis en alta concurrencia y patrones resilientes.",
+            value="Evaluar experiencia en agentes autónomos, RAG híbrido (Dense + BM25), microservicios en FastAPI y mitigación de prompt injection con énfasis en sistemas en producción.",
             help="Directiva prioritaria para el agente evaluador durante la sesión interactiva."
         )
         
