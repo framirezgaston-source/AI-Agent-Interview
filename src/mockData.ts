@@ -280,14 +280,23 @@ export const CODE_FILES_MANIFEST = [
   {
     path: 'dashboard/app.py',
     title: 'app.py',
-    desc: 'Entrada principal, login corporativo y redirección por rol',
+    desc: 'Entrada principal, login corporativo, registro en SQLite y redirección por rol',
     lang: 'python',
     code: `"""
 Syntropic AI - Talent Intelligence Platform
-app.py: Entrada principal, autenticación corporativa y enrutamiento por roles
+app.py: Entrada principal, autenticación corporativa, registro con base de datos SQLite y redirección
 """
 import streamlit as st
-from auth.session import init_session, login_user, render_sidebar_header, ROLE_TALENT_LEAD
+from auth.session import (
+    init_session,
+    login_user,
+    register_user,
+    render_sidebar_header,
+    ROLE_TALENT_LEAD,
+    ROLE_SUPERADMIN,
+    ROLE_RECRUITER,
+    ROLE_HIRING_MANAGER
+)
 
 st.set_page_config(page_title="Syntropic AI - Acceso Corporativo", page_icon="🧠", layout="wide")
 init_session()
@@ -297,12 +306,49 @@ if st.session_state.authenticated:
     st.title("👋 Bienvenido de nuevo a Syntropic AI")
     st.switch_page("pages/2_Candidatos.py")
 else:
-    col_left, col_right = st.columns([6, 5], gap="large")
+    col_left, col_right = st.columns([6, 6], gap="large")
     with col_right:
-        st.subheader("Acceso Corporativo para Reclutadores")
-        if st.button("🌐 Continuar con Google Workspace / Microsoft SSO", use_container_width=True):
-            login_user("elena.rostova@techcorp.io", "demo123", role=ROLE_TALENT_LEAD)
-            st.switch_page("pages/2_Candidatos.py")`
+        st.subheader("Acceso al Sistema")
+        st.caption("Autenticación con Base de Datos SQLite persistente en data/users.db")
+
+        # Pestañas para Iniciar Sesión o Registrarse
+        tab_login, tab_register = st.tabs(["🔑 Iniciar Sesión", "📝 Registrar Nuevo Usuario"])
+
+        with tab_login:
+            if st.button("🌐 Continuar con Google Workspace / Demo SSO", use_container_width=True):
+                login_user("elena.rostova@techcorp.io", "demo123", role=ROLE_TALENT_LEAD)
+                st.switch_page("pages/2_Candidatos.py")
+
+            with st.form("form_login"):
+                email_in = st.text_input("Correo electrónico", value="elena.rostova@techcorp.io")
+                password_in = st.text_input("Contraseña", value="demo123", type="password")
+                if st.form_submit_button("Iniciar Sesión ➔", use_container_width=True):
+                    if login_user(email_in, password_in):
+                        st.switch_page("pages/2_Candidatos.py")
+                    else:
+                        st.error("Credenciales incorrectas. Regístrate en la pestaña 'Registrar Nuevo Usuario'.")
+
+        with tab_register:
+            st.info("Crea una cuenta real. Se guardará con hash SHA-256 + salt en data/users.db.")
+            with st.form("form_register"):
+                new_nombre = st.text_input("Nombre completo", placeholder="Ej: Gastón Ramírez")
+                new_email = st.text_input("Correo electrónico real", placeholder="tu_correo@franjaautomations.com")
+                new_pass = st.text_input("Contraseña (mínimo 6 caracteres)", type="password")
+                new_pass_c = st.text_input("Confirmar contraseña", type="password")
+                new_role = st.selectbox("Rol", [ROLE_TALENT_LEAD, ROLE_SUPERADMIN, ROLE_RECRUITER, ROLE_HIRING_MANAGER])
+                new_tenant = st.text_input("Empresa", value="Franja Automations")
+
+                if st.form_submit_button("Crear Cuenta y Guardar en BD 💾", use_container_width=True):
+                    if new_pass != new_pass_c:
+                        st.error("Las contraseñas no coinciden.")
+                    else:
+                        ok, msg = register_user(new_nombre, new_email, new_pass, role=new_role, tenant_name=new_tenant)
+                        if ok:
+                            st.success(msg)
+                            login_user(new_email, new_pass, role=new_role, tenant_name=new_tenant)
+                            st.rerun()
+                        else:
+                            st.error(msg)`
   },
   {
     path: 'dashboard/pages/1_Posiciones.py',

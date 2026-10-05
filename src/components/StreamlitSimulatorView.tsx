@@ -369,15 +369,60 @@ export const StreamlitSimulatorView: React.FC<StreamlitSimulatorViewProps> = ({
 
         {/* Page: app.py */}
         {stPage === 'app' && (
-          <div className="space-y-4 text-xs">
-            <h1 className="text-2xl font-bold text-slate-900">Entrada Principal (app.py)</h1>
-            <p className="text-slate-500">Autenticación y Redirección a módulos con control de rol RBAC.</p>
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
-              <p>Sesión activa: <strong>{user.email}</strong></p>
-              <p>Rol: <code>{user.role}</code></p>
-              <button onClick={() => setStPage('candidatos')} className="px-3 py-1.5 bg-red-600 text-white font-bold rounded">
-                st.switch_page("pages/2_Candidatos.py")
-              </button>
+          <div className="space-y-6 text-xs max-w-4xl">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Entrada Principal (app.py)</h1>
+              <p className="text-slate-500">Módulo de Autenticación, Registro en SQLite (<code>data/users.db</code>) y Control de Roles.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: Streamlit markdown card */}
+              <div className="p-6 rounded-2xl bg-[#0B192C] text-white space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🧠</span>
+                  <span className="font-bold text-base">Syntropic<span className="text-sky-400">.ai</span></span>
+                  <span className="text-[10px] bg-sky-950 text-sky-400 border border-sky-800 px-1.5 py-0.5 rounded font-mono">ENTERPRISE</span>
+                </div>
+                <h3 className="text-lg font-bold leading-snug">Talento evaluado con rigor algorítmico y precisión ejecutiva.</h3>
+                <p className="text-slate-400 text-xs">Agentes de IA autónomos para entrevistas técnicas y ejecutivas.</p>
+                <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-[11px] space-y-1">
+                  <div className="font-semibold text-white">💾 Base de Datos Persistente</div>
+                  <div className="text-slate-400">Las credenciales se guardan con hash SHA-256 y salt en <code>data/users.db</code> (SQLite).</div>
+                </div>
+              </div>
+
+              {/* Right Column: Streamlit Tabs simulation */}
+              <div className="p-5 border border-slate-200 rounded-xl bg-white space-y-4 shadow-xs">
+                <div className="flex border-b border-slate-200 gap-2 pb-2">
+                  <span className="font-bold text-blue-600 border-b-2 border-blue-600 pb-1">🔑 Iniciar Sesión</span>
+                  <span className="text-slate-500 font-semibold px-2">📝 Registrar Nuevo Usuario</span>
+                </div>
+
+                <div className="space-y-3 bg-[#F0F2F6] p-4 rounded-lg border border-slate-200">
+                  <div className="text-slate-700 font-bold">st.form("form_register")</div>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-700 block">Nombre completo</span>
+                      <input type="text" readOnly value="Gastón Ramírez" className="w-full p-2 bg-white rounded border border-slate-300 text-xs" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-700 block">Correo electrónico real</span>
+                      <input type="email" readOnly value="framirezgaston@franjaautomations.com" className="w-full p-2 bg-white rounded border border-slate-300 text-xs text-blue-600 font-mono" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-700 block">Contraseña cifrada</span>
+                      <input type="text" readOnly value="•••••••••••• (SHA-256 + salt)" className="w-full p-2 bg-white rounded border border-slate-300 text-xs" />
+                    </div>
+                  </div>
+                  <button onClick={() => setStPage('candidatos')} className="w-full py-2 bg-[#0066FF] hover:bg-blue-700 text-white font-bold rounded-lg transition-colors cursor-pointer">
+                    Crear Cuenta y Guardar en SQLite (data/users.db) 💾
+                  </button>
+                </div>
+
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-[11px]">
+                  <strong>✓ Persistencia activada:</strong> Los usuarios que se registran quedan almacenados en la tabla <code>users</code> con <code>password_hash</code> y <code>salt</code> únicos.
+                </div>
+              </div>
             </div>
           </div>
         )}
