@@ -71,6 +71,21 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS position_candidates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        position_title TEXT NOT NULL,
+        candidato TEXT NOT NULL,
+        email TEXT NOT NULL,
+        token TEXT NOT NULL,
+        url TEXT NOT NULL,
+        expira_en TEXT NOT NULL DEFAULT '48h 00m',
+        estado TEXT NOT NULL DEFAULT 'No utilizado',
+        tenant_name TEXT NOT NULL DEFAULT 'Franja Automations',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
     conn.commit()
 
     # Sembrar usuario por defecto si la base está vacía
@@ -242,3 +257,48 @@ def render_sidebar_header():
         if st.button("Cerrar Sesión", key="btn_logout_sidebar", use_container_width=True):
             logout_user()
         st.markdown("---")
+
+
+def save_position_candidates_bulk(position_title: str, candidates: List[Dict[str, Any]], tenant_name: str = "Franja Automations") -> int:
+    """Guarda de forma persistente la lista de postulantes y sus enlaces en SQLite."""
+    init_db()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    saved = 0
+    for c in candidates:
+        cursor.execute("""
+        INSERT INTO position_candidates (position_title, candidato, email, token, url, expira_en, estado, tenant_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            position_title.strip(),
+            c.get("candidato", "").strip(),
+            c.get("email", "").strip(),
+            c.get("token", ""),
+            c.get("url", ""),
+            c.get("expira_en", "48h 00m"),
+            c.get("estado", "No utilizado"),
+            tenant_name.strip()
+        ))
+        saved += 1
+    conn.commit()
+    conn.close()
+    return saved
+
+
+def get_position_candidates(position_title: Optional[str] = None, tenant_name: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Obtiene los postulantes y enlaces guardados para una vacante específica o tenant."""
+    init_db()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if position_title and tenant_name:
+        cursor.execute("SELECT * FROM position_candidates WHERE position_title = ? AND tenant_name = ? ORDER BY id DESC", (position_title.strip(), tenant_name.strip()))
+    elif position_title:
+        cursor.execute("SELECT * FROM position_candidates WHERE position_title = ? ORDER BY id DESC", (position_title.strip(),))
+    elif tenant_name:
+        cursor.execute("SELECT * FROM position_candidates WHERE tenant_name = ? ORDER BY id DESC", (tenant_name.strip(),))
+    else:
+        cursor.execute("SELECT * FROM position_candidates ORDER BY id DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+

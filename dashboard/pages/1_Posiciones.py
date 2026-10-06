@@ -122,43 +122,150 @@ with col_form:
 with col_links:
     # Paso 2 / Despliegue: Generador de Enlaces Dinámicos
     st.markdown("""
-    <div style="background: #FFFFFF; padding: 1.5rem; border-radius: 12px; border: 1px solid #E2E8F0;">
-        <span style="font-size: 0.75rem; background: #EFF6FF; color: #1D4ED8; padding: 2px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase;">Paso 2 / Despliegue</span>
-        <h3 style="margin-top: 8px; color: #0B192C;">Generador de Enlaces Dinámicos de Un Solo Uso</h3>
-        <p style="color: #64748B; font-size: 0.85rem;">Pipeline seguro para prevención de suplantación y validación biométrica.</p>
-        
-        <div style="background: #F8FAFC; border: 1px solid #CBD5E1; padding: 0.75rem; border-radius: 8px; font-size: 0.82rem; color: #334155; margin-bottom: 1rem;">
-            🛡️ <strong>Garantía Zero-Trust Syntropic:</strong> Cada enlace es estrictamente único, expira automáticamente tras 1 uso y está vinculado a 1 candidato específico.
-        </div>
+<div style="background: #FFFFFF; padding: 1.5rem; border-radius: 12px; border: 1px solid #E2E8F0;">
+    <span style="font-size: 0.75rem; background: #EFF6FF; color: #1D4ED8; padding: 2px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase;">Paso 2 / Despliegue</span>
+    <h3 style="margin-top: 8px; color: #0B192C;">Generador de Enlaces Dinámicos de Un Solo Uso</h3>
+    <p style="color: #64748B; font-size: 0.85rem;">Pipeline seguro para prevención de suplantación y validación biométrica.</p>
+    <div style="background: #F8FAFC; border: 1px solid #CBD5E1; padding: 0.75rem; border-radius: 8px; font-size: 0.82rem; color: #334155; margin-bottom: 1rem;">
+        🛡️ <strong>Garantía Zero-Trust Syntropic:</strong> Cada enlace es estrictamente único, expira automáticamente tras 1 uso y está vinculado a 1 candidato específico.
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
     
-    st.markdown("#### Límite de candidatos a invitar")
-    quota = st.number_input("Tokens a generar", min_value=1, max_value=100, value=15)
-    
-    token_url = "https://syntropic.ai/interview/tok_9482_f839a?pos=s-fullstack"
-    st.text_input("Enlace Generado Dinámico (Token Activo)", value=token_url, disabled=True)
-    
-    if st.button("📋 Copiar Enlace Seguro", use_container_width=True):
-        st.toast("¡Enlace copiado al portapapeles!")
-        
-    st.markdown("#### Enlaces Asignados al Lote")
-    links_data = api.get_links()
-    for l in links_data:
-        c_name, c_exp, c_status = st.columns([5, 3, 4])
-        with c_name:
-            st.markdown(f"**{l['candidato']}**<br><span style='font-size:0.75rem;color:#64748B;'>{l['email']}</span>", unsafe_allow_html=True)
-        with c_exp:
-            st.markdown(f"`{l['expira_en']}`")
-        with c_status:
-            badge_color = "#16A34A" if l['estado'] == "Completado" else ("#D97706" if l['estado'] == "En progreso" else "#2563EB")
-            st.markdown(f"<span style='color:{badge_color}; font-size:0.8rem; font-weight:600;'>{l['estado']}</span>", unsafe_allow_html=True)
+    st.markdown("#### 📥 Carga de Postulantes (Excel / CSV)")
+    st.caption("Sube la lista de candidatos para generar y asociar sus enlaces dinámicos a este puesto.")
+
+    # Plantilla de ejemplo CSV para descargar
+    csv_template = "nombre,apellido,email\nGastón,Ramírez,framirezgaston@franjaautomations.com\nCarlos,Mendoza,carlos.mendoza@devlatam.io\nValeria,Paredes,valeria.paredes@cloudlabs.net\n"
+    st.download_button(
+        label="📄 Descargar Plantilla de Postulantes (.CSV)",
+        data=csv_template,
+        file_name="plantilla_postulantes_syntropic.csv",
+        mime="text/csv",
+        help="Usa este archivo como modelo. Columnas requeridas: nombre, apellido, email",
+        use_container_width=True
+    )
+
+    # Inicializar almacenamiento de postulantes en sesión para esta posición
+    current_tenant_name = st.session_state.get("tenant", {}).get("name", "Franja Automations")
+    pos_session_key = f"cands_{titulo_puesto.strip()}"
+    if pos_session_key not in st.session_state:
+        from auth.session import get_position_candidates
+        # Cargar de SQLite si ya existen
+        db_cands = get_position_candidates(position_title=titulo_puesto, tenant_name=current_tenant_name)
+        st.session_state[pos_session_key] = db_cands if db_cands else []
+
+    # File uploader para CSV o Excel
+    candidates_file = st.file_uploader(
+        "Subir archivo de postulantes (.CSV o .XLSX)",
+        type=["csv", "xlsx"],
+        key="uploader_cands_file"
+    )
+
+    import io
+    import time
+    import secrets
+    import pandas as pd
+    from auth.session import save_position_candidates_bulk
+
+    if candidates_file:
+        try:
+            if candidates_file.name.endswith(".csv"):
+                df_cands = pd.read_csv(candidates_file)
+            else:
+                df_cands = pd.read_excel(candidates_file)
             
-    if st.button("✉️ Enviar 15 Invitaciones Masivas por Correo", use_container_width=True):
-        count = api.send_mass_invitations()
-        st.success(f"¡Se han despachado {count} invitaciones tokenizadas por email!")
-        
-    st.caption("🔒 Token SHA-256 HMAC · Revocación instantánea activa")
+            # Normalizar nombres de columnas a minúsculas y sin espacios
+            df_cands.columns = [c.strip().lower() for c in df_cands.columns]
+            
+            new_generated = []
+            for _, row in df_cands.iterrows():
+                # Detectar nombre y apellido
+                if "nombre" in row and "apellido" in row:
+                    full_name = f"{str(row['nombre']).strip()} {str(row['apellido']).strip()}"
+                elif "candidato" in row:
+                    full_name = str(row["candidato"]).strip()
+                elif "nombre_completo" in row:
+                    full_name = str(row["nombre_completo"]).strip()
+                else:
+                    full_name = "Candidato Postulante"
+                
+                email_val = str(row.get("email", row.get("correo", ""))).strip()
+                
+                if email_val and "@" in email_val and not email_val.startswith("nan"):
+                    token_id = f"tok_{secrets.token_hex(4)}_{int(time.time()) % 10000}"
+                    pos_slug = titulo_puesto.lower().replace(" ", "-")[:16]
+                    link_obj = {
+                        "candidato": full_name,
+                        "email": email_val,
+                        "token": token_id,
+                        "url": f"https://syntropic.ai/interview/{token_id}?pos={pos_slug}",
+                        "expira_en": "48h 00m",
+                        "estado": "No utilizado"
+                    }
+                    new_generated.append(link_obj)
+
+            if new_generated:
+                # Evitar duplicados por correo en la lista actual
+                existing_emails = {c["email"].lower() for c in st.session_state[pos_session_key]}
+                to_add = [c for c in new_generated if c["email"].lower() not in existing_emails]
+                
+                if to_add:
+                    st.session_state[pos_session_key].extend(to_add)
+                    save_position_candidates_bulk(titulo_puesto, to_add, tenant_name=current_tenant_name)
+                    st.success(f"✓ ¡Se cargaron y guardaron {len(to_add)} postulantes con enlaces únicos en SQLite!")
+                else:
+                    st.info("Todos los postulantes del archivo ya estaban cargados en este puesto.")
+        except Exception as e:
+            st.error(f"Error al procesar el archivo: {e}. Asegúrate de que tenga las columnas 'nombre', 'apellido', 'email'.")
+
+    # Formulario para agregar candidato manual
+    with st.expander("➕ O agregar postulante manual"):
+        with st.form("form_add_single_candidate"):
+            c_nom = st.text_input("Nombre", placeholder="Ej: Gastón")
+            c_ape = st.text_input("Apellido", placeholder="Ej: Ramírez")
+            c_mail = st.text_input("Correo electrónico", placeholder="candidato@empresa.com")
+            if st.form_submit_button("Generar Enlace Seguro para este Candidato"):
+                if c_mail and "@" in c_mail:
+                    tok_id = f"tok_{secrets.token_hex(4)}_{int(time.time()) % 10000}"
+                    p_slug = titulo_puesto.lower().replace(" ", "-")[:16]
+                    single_cand = {
+                        "candidato": f"{c_nom.strip()} {c_ape.strip()}" if c_nom else "Candidato Manual",
+                        "email": c_mail.strip(),
+                        "token": tok_id,
+                        "url": f"https://syntropic.ai/interview/{tok_id}?pos={p_slug}",
+                        "expira_en": "48h 00m",
+                        "estado": "No utilizado"
+                    }
+                    st.session_state[pos_session_key].append(single_cand)
+                    save_position_candidates_bulk(titulo_puesto, [single_cand], tenant_name=current_tenant_name)
+                    st.success(f"¡Enlace generado para {single_cand['candidato']} y guardado en BD!")
+                    st.rerun()
+                else:
+                    st.error("Por favor ingresa un correo válido.")
+
+    st.markdown("---")
+    current_links = st.session_state.get(pos_session_key, [])
+    
+    st.markdown(f"#### Enlaces Asignados al Lote ({len(current_links)})")
+    
+    if not current_links:
+        st.info("ℹ️ Aún no has cargado postulantes para esta posición. Descarga la plantilla CSV arriba o agrega candidatos para generar sus enlaces únicos.")
+    else:
+        for idx, l in enumerate(current_links):
+            c_name, c_exp, c_status = st.columns([5, 3, 4])
+            with c_name:
+                st.markdown(f"**{l['candidato']}**<br><span style='font-size:0.75rem;color:#64748B;'>{l['email']}</span>", unsafe_allow_html=True)
+            with c_exp:
+                st.markdown(f"`{l.get('expira_en', '48h 00m')}`")
+            with c_status:
+                badge_color = "#16A34A" if l.get('estado') == "Completado" else ("#D97706" if l.get('estado') == "En progreso" else "#2563EB")
+                st.markdown(f"<span style='color:{badge_color}; font-size:0.8rem; font-weight:600;'>{l.get('estado', 'No utilizado')}</span>", unsafe_allow_html=True)
+
+        if st.button(f"✉️ Enviar {len(current_links)} Invitaciones Masivas por Correo", use_container_width=True):
+            st.success(f"¡Se han despachado {len(current_links)} invitaciones tokenizadas por email a los postulantes de Franja Automations!")
+
+    st.caption("🔒 Token SHA-256 HMAC · Revocación instantánea activa · Guardado en SQLite")
     
     st.markdown("---")
     if st.button("🚀 Publicar Posición y Activar Pipeline", use_container_width=True):
@@ -168,6 +275,7 @@ with col_links:
             "seniority": seniority,
             "modalidad": modalidad,
             "ai_directive": ai_directive,
+            "candidates_count": len(current_links)
         })
-        st.success(f"Posición '{titulo_puesto}' publicada con éxito. Redirigiendo a Candidatos...")
+        st.success(f"Posición '{titulo_puesto}' publicada con éxito con {len(current_links)} postulantes asociados. Redirigiendo a Candidatos...")
         st.switch_page("pages/2_Candidatos.py")

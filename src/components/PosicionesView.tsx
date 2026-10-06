@@ -35,11 +35,132 @@ export const PosicionesView: React.FC<PosicionesViewProps> = ({
   const [copied, setCopied] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  // Postulantes asociados a esta vacante (inicia vacío para nuevas posiciones)
+  const [lotCandidates, setLotCandidates] = useState<TokenLink[]>([]);
+  const [manualName, setManualName] = useState('');
+  const [manualSurname, setManualSurname] = useState('');
+  const [manualEmail, setManualEmail] = useState('');
+  const [showManualForm, setShowManualForm] = useState(false);
+
   const totalWeight = weights.q1 + weights.q2 + weights.q3 + weights.q4;
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
+
+  const handleDownloadTemplate = () => {
+    const csvContent = "nombre,apellido,email\nGastón,Ramírez,framirezgaston@franjaautomations.com\nCarlos,Mendoza,carlos.mendoza@devlatam.io\nValeria,Paredes,valeria.paredes@cloudlabs.net\n";
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'plantilla_postulantes_syntropic.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Plantilla descargada: plantilla_postulantes_syntropic.csv');
+  };
+
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = event => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length < 2) {
+          showToast('El archivo debe tener un encabezado y al menos una fila de datos.');
+          return;
+        }
+
+        const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/['"]/g, ''));
+        const newCands: TokenLink[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim().replace(/['"]/g, ''));
+          let full_name = 'Candidato Postulante';
+          let email = '';
+
+          const nomIdx = headers.indexOf('nombre');
+          const apeIdx = headers.indexOf('apellido');
+          const emailIdx = headers.indexOf('email') !== -1 ? headers.indexOf('email') : headers.indexOf('correo');
+          const candIdx = headers.indexOf('candidato');
+
+          if (nomIdx !== -1 && apeIdx !== -1) {
+            full_name = `${cols[nomIdx] || ''} ${cols[apeIdx] || ''}`.trim();
+          } else if (candIdx !== -1) {
+            full_name = cols[candIdx] || '';
+          }
+
+          if (emailIdx !== -1) {
+            email = cols[emailIdx] || '';
+          }
+
+          if (email && email.includes('@')) {
+            const tok = `tok_${Math.random().toString(36).substring(2, 8)}_${Date.now() % 10000}`;
+            const pSlug = roleTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 16);
+            newCands.push({
+              id: `tok-${Date.now()}-${i}`,
+              candidato: full_name || email.split('@')[0],
+              email,
+              posicion_code: pSlug,
+              token: tok,
+              url: `https://syntropic.ai/interview/${tok}?pos=${pSlug}`,
+              expira_en: '48h 00m',
+              estado: 'No utilizado',
+              creado: 'Recién cargado'
+            });
+          }
+        }
+
+        if (newCands.length > 0) {
+          setLotCandidates(prev => {
+            const existingEmails = new Set(prev.map(p => p.email.toLowerCase()));
+            const filtered = newCands.filter(c => !existingEmails.has(c.email.toLowerCase()));
+            return [...prev, ...filtered];
+          });
+          showToast(`✓ ¡Se cargaron y tokenizaron ${newCands.length} postulantes desde el archivo!`);
+        } else {
+          showToast('No se encontraron correos válidos en el archivo. Verifica el formato.');
+        }
+      } catch {
+        showToast('Error al leer el archivo. Asegúrate de que sea un archivo CSV válido.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleAddManualCandidate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualEmail || !manualEmail.includes('@')) {
+      showToast('Por favor ingresa un correo válido.');
+      return;
+    }
+    const tok = `tok_${Math.random().toString(36).substring(2, 8)}_${Date.now() % 10000}`;
+    const pSlug = roleTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 16);
+    const fullName = `${manualName.trim()} ${manualSurname.trim()}`.trim() || manualEmail.split('@')[0];
+    
+    const newCand: TokenLink = {
+      id: `tok-${Date.now()}`,
+      candidato: fullName,
+      email: manualEmail.trim(),
+      posicion_code: pSlug,
+      token: tok,
+      url: `https://syntropic.ai/interview/${tok}?pos=${pSlug}`,
+      expira_en: '48h 00m',
+      estado: 'No utilizado',
+      creado: 'Recién generado'
+    };
+
+    setLotCandidates(prev => [newCand, ...prev]);
+    setManualName('');
+    setManualSurname('');
+    setManualEmail('');
+    setShowManualForm(false);
+    showToast(`✓ Enlace generado para ${fullName}`);
   };
 
   const handleCopyLink = () => {
@@ -488,33 +609,85 @@ export const PosicionesView: React.FC<PosicionesViewProps> = ({
               </div>
             </div>
 
-            {/* Invite Quota Stepper */}
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-2">
+            {/* Bulk Candidate Upload Area (CSV / Excel) */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
               <div className="flex items-center justify-between text-xs">
-                <label className="font-semibold text-slate-800">Límite de candidatos a invitar</label>
-                <span className="text-slate-400 text-[11px]">Lote actual: {candidateLimit} tokens</span>
+                <div>
+                  <span className="font-bold text-slate-900 block">📥 Carga de Postulantes (Excel / CSV)</span>
+                  <span className="text-[11px] text-slate-500">Sube la nómina de candidatos para generar y asociar sus enlaces dinámicos a este puesto.</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              {/* Template download & File Upload */}
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
-                  onClick={() => setCandidateLimit(prev => Math.max(1, prev - 1))}
-                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-base shadow-xs"
+                  onClick={handleDownloadTemplate}
+                  className="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                 >
-                  -
+                  <span className="material-symbols-outlined text-[16px] text-blue-600">download</span>
+                  <span>Descargar Plantilla (.CSV)</span>
                 </button>
-                <input
-                  type="text"
-                  readOnly
-                  value={`${candidateLimit} candidatos`}
-                  className="flex-1 text-center py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-900 shadow-xs"
-                />
+
+                <label className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors">
+                  <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                  <span>Subir Postulantes (.CSV)</span>
+                  <input
+                    type="file"
+                    accept=".csv,.txt"
+                    onChange={handleCSVUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Toggle manual form */}
+              <div className="pt-1">
                 <button
                   type="button"
-                  onClick={() => setCandidateLimit(prev => prev + 1)}
-                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-base shadow-xs"
+                  onClick={() => setShowManualForm(!showManualForm)}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
                 >
-                  +
+                  <span className="material-symbols-outlined text-[16px]">
+                    {showManualForm ? 'remove' : 'add'}
+                  </span>
+                  <span>{showManualForm ? 'Ocultar formulario manual' : '➕ O agregar postulante manualmente'}</span>
                 </button>
+
+                {showManualForm && (
+                  <form onSubmit={handleAddManualCandidate} className="mt-2 p-3 bg-white rounded-lg border border-slate-200 space-y-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nombre"
+                        value={manualName}
+                        onChange={e => setManualName(e.target.value)}
+                        className="px-2.5 py-1.5 rounded border border-slate-200 text-xs"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Apellido"
+                        value={manualSurname}
+                        onChange={e => setManualSurname(e.target.value)}
+                        className="px-2.5 py-1.5 rounded border border-slate-200 text-xs"
+                      />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      placeholder="Correo electrónico (ej: candidato@empresa.com)"
+                      value={manualEmail}
+                      onChange={e => setManualEmail(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded border border-slate-200 text-xs"
+                    />
+                    <button
+                      type="submit"
+                      className="w-full py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded font-bold text-xs cursor-pointer"
+                    >
+                      Generar Enlace Seguro para este Candidato
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
 
@@ -544,51 +717,68 @@ export const PosicionesView: React.FC<PosicionesViewProps> = ({
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
-                  Enlaces Asignados al Lote
+                  Enlaces Asignados al Lote ({lotCandidates.length})
                 </span>
+                {lotCandidates.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLotCandidates([]);
+                      showToast('Lote de candidatos limpiado.');
+                    }}
+                    className="text-red-500 hover:underline text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">delete</span>
+                    <span>Limpiar Lote</span>
+                  </button>
+                )}
+              </div>
+
+              {lotCandidates.length === 0 ? (
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center space-y-1">
+                  <span className="material-symbols-outlined text-slate-400 text-[24px]">group_add</span>
+                  <p className="text-xs font-semibold text-slate-700">Aún no has cargado postulantes para esta posición.</p>
+                  <p className="text-[11px] text-slate-500">
+                    Descarga la plantilla CSV arriba o añade candidatos manualmente para generar sus enlaces únicos.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 overflow-hidden bg-white text-xs divide-y divide-slate-100">
+                  <div className="grid grid-cols-12 px-3 py-2 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="col-span-5">Candidato / Destino</div>
+                    <div className="col-span-3 text-center">Expiración</div>
+                    <div className="col-span-4 text-right">Estado</div>
+                  </div>
+
+                  {lotCandidates.map(l => (
+                    <div key={l.id} className="grid grid-cols-12 px-3 py-2.5 items-center hover:bg-slate-50/60 transition-colors">
+                      <div className="col-span-5 min-w-0">
+                        <span className="font-bold text-slate-900 block truncate">{l.candidato}</span>
+                        <span className="text-[10px] text-slate-400 truncate block">{l.email}</span>
+                      </div>
+                      <div className="col-span-3 text-center text-[10px] font-mono text-slate-600">
+                        {l.expira_en}
+                      </div>
+                      <div className="col-span-4 flex justify-end">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${l.estado === 'Completado' ? 'bg-emerald-50 text-emerald-700' : (l.estado === 'En progreso' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700')}`}>
+                          {l.estado}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {lotCandidates.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => showToast('Tokens regenerados y cifrados con nueva clave HMAC.')}
-                  className="text-blue-600 hover:underline text-[11px] font-semibold flex items-center gap-0.5"
+                  onClick={() => showToast(`¡Se han despachado ${lotCandidates.length} invitaciones tokenizadas por email!`)}
+                  className="w-full mt-2 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
                 >
-                  <span className="material-symbols-outlined text-[14px]">refresh</span>
-                  <span>Regenerar Tokens</span>
+                  <span className="material-symbols-outlined text-[17px]">forward_to_inbox</span>
+                  <span>Enviar {lotCandidates.length} Invitaciones Masivas por Correo</span>
                 </button>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 overflow-hidden bg-white text-xs divide-y divide-slate-100">
-                <div className="grid grid-cols-12 px-3 py-2 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  <div className="col-span-5">Candidato / Destino</div>
-                  <div className="col-span-3 text-center">Expiración</div>
-                  <div className="col-span-4 text-right">Estado</div>
-                </div>
-
-                {links.map(l => (
-                  <div key={l.id} className="grid grid-cols-12 px-3 py-2.5 items-center hover:bg-slate-50/60 transition-colors">
-                    <div className="col-span-5 min-w-0">
-                      <span className="font-bold text-slate-900 block truncate">{l.candidato}</span>
-                      <span className="text-[10px] text-slate-400 truncate block">{l.email}</span>
-                    </div>
-                    <div className="col-span-3 text-center text-[10px] font-mono text-slate-600">
-                      {l.expira_en}
-                    </div>
-                    <div className="col-span-4 flex justify-end">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${l.estado === 'Completado' ? 'bg-emerald-50 text-emerald-700' : (l.estado === 'En progreso' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700')}`}>
-                        {l.estado}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => showToast(`¡Se han despachado ${candidateLimit} invitaciones tokenizadas por email!`)}
-                className="w-full mt-2 py-2.5 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[17px] text-blue-600">forward_to_inbox</span>
-                <span>Enviar {candidateLimit} Invitaciones Masivas por Correo</span>
-              </button>
+              )}
             </div>
 
             <div className="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between text-[11px] text-slate-500">
