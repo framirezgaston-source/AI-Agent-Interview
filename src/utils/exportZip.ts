@@ -331,7 +331,7 @@ with col_links:
                     "candidato": item["candidato"],
                     "email": item["email"],
                     "token": token_id,
-                    "url": f"https://syntropic.ai/interview/{token_id}?pos={pos_slug}",
+                    "url": f"http://localhost:8501/Portal_Candidato?token={token_id}&pos={pos_slug}",
                     "expira_en": "48h 00m",
                     "estado": "No utilizado"
                 })
@@ -359,7 +359,7 @@ with col_links:
                         "candidato": f"{c_nom.strip()} {c_ape.strip()}" if c_nom else "Candidato Manual",
                         "email": c_mail.strip(),
                         "token": tok_id,
-                        "url": f"https://syntropic.ai/interview/{tok_id}?pos={p_slug}",
+                        "url": f"http://localhost:8501/Portal_Candidato?token={tok_id}&pos={p_slug}",
                         "expira_en": "48h 00m",
                         "estado": "No utilizado"
                     }
@@ -388,10 +388,16 @@ with col_links:
             use_container_width=True
         )
 
+        st.info("💡 **Acceso en Localhost:** Cada enlace está configurado para ejecutarse en tu servidor local de Streamlit. Haz clic en el botón azul para probar como candidato.")
         st.markdown(f"**Tokens Activos ({len(current_links)}):**")
         for idx, l in enumerate(current_links):
             st.markdown(f"👤 **{l['candidato']}** · \`{l['email']}\`")
-            st.code(l["url"], language="text")
+            raw_u = l.get('url', '')
+            t_id = l.get('token', '')
+            p_s = titulo_puesto.lower().replace(' ', '-')[:16]
+            loc_u = f"http://localhost:8501/Portal_Candidato?token={t_id}&pos={p_s}" if "syntropic.ai" in raw_u else raw_u
+            st.code(loc_u, language="text")
+            st.markdown(f'<div style="margin: 4px 0 8px 0;"><a href="{loc_u}" target="_blank" style="background:#0066FF; color:white; padding:5px 12px; border-radius:6px; text-decoration:none; font-size:0.8rem; font-weight:700;">🚀 Abrir Entrevista en Localhost ↗</a></div>', unsafe_allow_html=True)
             st.caption(f"● {l.get('estado', 'No utilizado')} · Expira: {l.get('expira_en', '48h 00m')}")
             st.markdown("<hr style='margin: 0.5rem 0; border: none; border-top: 1px dashed #E2E8F0;' />", unsafe_allow_html=True)
 
@@ -741,12 +747,18 @@ with col_gen:
             new_link = api.generate_token_link(cand_name, cand_email, code_clean)
             st.success(f"¡Token {new_link['token']} generado con éxito para {cand_name}!")
             st.code(new_link["url"], language="bash")
+            st.markdown(f'<div style="margin-top:4px;"><a href="{new_link[\'url\']}" target="_blank" style="background:#0066FF; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:0.8rem; font-weight:700;">🚀 Abrir en Localhost ↗</a></div>', unsafe_allow_html=True)
 
 with col_list:
     st.subheader("Inventario de Enlaces Activos")
     links = api.get_links()
     for l in links:
-        st.markdown(f"**{l['candidato']}** - \`{l['url']}\` ({l['estado']})")
+        raw_u = l.get('url', '')
+        t_id = l.get('token', '')
+        pos_c = l.get('posicion_code', 'ia-engineer')
+        loc_u = f"http://localhost:8501/Portal_Candidato?token={t_id}&pos={pos_c}" if "syntropic.ai" in raw_u else raw_u
+        st.markdown(f"**{l['candidato']}** - \`{loc_u}\` ({l['estado']})")
+        st.markdown(f'<div style="margin:2px 0 6px 0;"><a href="{loc_u}" target="_blank" style="background:#0B192C; color:#38BDF8; border:1px solid #38BDF8; padding:3px 8px; border-radius:4px; text-decoration:none; font-size:0.75rem;">🎓 Probar en Localhost ↗</a></div>', unsafe_allow_html=True)
 `;
 
 const BUSCAR_CANDIDATOS_PY = `"""
@@ -1153,7 +1165,7 @@ MOCK_LINKS = [
         "email": "m.morales@mail.com",
         "posicion_code": "s-fullstack",
         "token": "tok_9482_f839a",
-        "url": "https://syntropic.ai/interview/tok_9482_f839a?pos=s-fullstack",
+        "url": "http://localhost:8501/Portal_Candidato?token=tok_9482_f839a&pos=s-fullstack",
         "expira_en": "48h 00m",
         "estado": "No utilizado",
         "creado": "2025-10-24 09:00"

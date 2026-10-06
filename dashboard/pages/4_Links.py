@@ -39,8 +39,17 @@ with col_gen:
         if submitted:
             if cand_name and cand_email:
                 new_link = api.generate_token_link(cand_name, cand_email, code_clean)
-                st.success(f"¡Token {new_link['token']} generado con éxito para {cand_name}!")
-                st.code(new_link["url"], language="bash")
+                tok_id = new_link.get("token", "")
+                local_url = f"http://localhost:8501/Portal_Candidato?token={tok_id}&pos={code_clean}"
+                st.success(f"¡Token {tok_id} generado con éxito para {cand_name}!")
+                st.code(local_url, language="bash")
+                st.markdown(f"""
+                <div style="margin-top: 6px; margin-bottom: 12px;">
+                    <a href="{local_url}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: #0066FF; color: white; padding: 7px 16px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 700;">
+                        🚀 Abrir Entrevista en Localhost (Portal Candidato) ↗
+                    </a>
+                </div>
+                """, unsafe_allow_html=True)
             else:
                 st.error("Por favor completa nombre y correo.")
                 
@@ -58,13 +67,18 @@ with col_list:
     links = api.get_links()
     
     for l in links:
+        raw_url = l.get('url', '')
+        tok_id = l.get('token', '')
+        pos_code = l.get('posicion_code', 'ia-engineer')
+        local_url = f"http://localhost:8501/Portal_Candidato?token={tok_id}&pos={pos_code}" if "syntropic.ai" in raw_url else raw_url
+        
         with st.container():
             st.markdown(f"""
             <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <strong style="font-size: 1rem; color: #0B192C;">{l['candidato']}</strong>
-                        <div style="font-size: 0.8rem; color: #64748B;">{l['email']} · Posición: <code>{l['posicion_code']}</code></div>
+                        <div style="font-size: 0.8rem; color: #64748B;">{l['email']} · Posición: <code>{pos_code}</code></div>
                     </div>
                     <div>
                         <span style="background: {'#ECFDF5' if l['estado'] == 'Completado' else ('#FEF3C7' if l['estado'] == 'En progreso' else '#EFF6FF')};
@@ -74,8 +88,13 @@ with col_list:
                         </span>
                     </div>
                 </div>
-                <div style="margin-top: 8px; font-size: 0.78rem; font-family: monospace; color: #475569; word-break: break-all; background: #F8FAFC; padding: 4px 8px; border-radius: 4px;">
-                    {l['url']}
+                <div style="margin-top: 8px; font-size: 0.78rem; font-family: monospace; color: #475569; word-break: break-all; background: #F8FAFC; padding: 6px 10px; border-radius: 4px; border: 1px solid #E2E8F0;">
+                    {local_url}
+                </div>
+                <div style="margin-top: 6px;">
+                    <a href="{local_url}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; background: #0B192C; color: #38BDF8; border: 1px solid #38BDF8; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 0.75rem; font-weight: 600;">
+                        🎓 Probar como Candidato en Localhost ↗
+                    </a>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 0.75rem; color: #64748B;">
                     <span>⏳ Expiración: <strong>{l['expira_en']}</strong></span>
@@ -87,7 +106,7 @@ with col_list:
             c_cop, c_rev = st.columns([1, 1])
             with c_cop:
                 if st.button("📋 Copiar URL", key=f"cop_{l['token']}", use_container_width=True):
-                    st.toast(f"Copiado: {l['url']}")
+                    st.toast(f"Copiado: {local_url}")
             with c_rev:
                 if st.button("🚫 Revocar Token", key=f"rev_{l['token']}", use_container_width=True):
                     st.toast(f"Token {l['token']} revocado inmediatamente.")

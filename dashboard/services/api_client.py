@@ -168,7 +168,7 @@ class APIClient:
             "email": email,
             "posicion_code": position_code,
             "token": token_id,
-            "url": f"https://syntropic.ai/interview/{token_id}?pos={position_code}",
+            "url": f"http://localhost:8501/Portal_Candidato?token={token_id}&pos={position_code}",
             "expira_en": "48h 00m",
             "estado": "No utilizado",
             "estado_badge": "bg-blue-50 text-blue-700",

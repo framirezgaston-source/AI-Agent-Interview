@@ -68,7 +68,7 @@ export default function App() {
       email: email,
       posicion_code: posCode,
       token: token,
-      url: `https://syntropic.ai/interview/${token}?pos=${posCode}`,
+      url: `http://localhost:8501/Portal_Candidato?token=${token}&pos=${posCode}`,
       expira_en: '48h 00m',
       estado: 'No utilizado',
       creado: 'Recién generado'

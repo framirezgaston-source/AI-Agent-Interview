@@ -158,7 +158,7 @@ export const INITIAL_LINKS: TokenLink[] = [
     email: 'm.morales@mail.com',
     posicion_code: 's-fullstack',
     token: 'tok_9482_f839a',
-    url: 'https://syntropic.ai/interview/tok_9482_f839a?pos=s-fullstack',
+    url: 'http://localhost:8501/Portal_Candidato?token=tok_9482_f839a&pos=s-fullstack',
     expira_en: '48h 00m',
     estado: 'No utilizado',
     creado: 'Hoy, 09:00'
@@ -169,7 +169,7 @@ export const INITIAL_LINKS: TokenLink[] = [
     email: 'c.silvetti@domain.dev',
     posicion_code: 's-fullstack',
     token: 'tok_8812_bb31e',
-    url: 'https://syntropic.ai/interview/tok_8812_bb31e?pos=s-fullstack',
+    url: 'http://localhost:8501/Portal_Candidato?token=tok_8812_bb31e&pos=s-fullstack',
     expira_en: '36h 12m',
     estado: 'En progreso',
     creado: 'Hoy, 10:15'
@@ -180,7 +180,7 @@ export const INITIAL_LINKS: TokenLink[] = [
     email: 'lbenitez@cloudops.org',
     posicion_code: 's-fullstack',
     token: 'tok_1102_99ac2',
-    url: 'https://syntropic.ai/interview/tok_1102_99ac2?pos=s-fullstack',
+    url: 'http://localhost:8501/Portal_Candidato?token=tok_1102_99ac2&pos=s-fullstack',
     expira_en: 'Consumido',
     estado: 'Completado',
     creado: 'Ayer, 15:30'

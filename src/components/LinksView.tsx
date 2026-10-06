@@ -181,6 +181,14 @@ export const LinksView: React.FC<LinksViewProps> = ({ links, onGenerateLink, set
                     <span>Expiración: <strong className="text-slate-700">{l.expira_en}</strong> · Creado: {l.creado}</span>
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => setActiveTab('portal_candidato')}
+                        className="text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Probar entrevista de este candidato"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">play_circle</span>
+                        <span>Probar</span>
+                      </button>
+                      <button
                         onClick={() => handleCopy(l.url)}
                         className="text-blue-600 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
                       >

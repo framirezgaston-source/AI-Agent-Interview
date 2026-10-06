@@ -266,7 +266,7 @@ with col_links:
                     "candidato": item["candidato"],
                     "email": item["email"],
                     "token": token_id,
-                    "url": f"https://syntropic.ai/interview/{token_id}?pos={pos_slug}",
+                    "url": f"http://localhost:8501/Portal_Candidato?token={token_id}&pos={pos_slug}",
                     "expira_en": "48h 00m",
                     "estado": "No utilizado"
                 })
@@ -297,7 +297,7 @@ with col_links:
                         "candidato": f"{c_nom.strip()} {c_ape.strip()}" if c_nom else "Candidato Manual",
                         "email": c_mail.strip(),
                         "token": tok_id,
-                        "url": f"https://syntropic.ai/interview/{tok_id}?pos={p_slug}",
+                        "url": f"http://localhost:8501/Portal_Candidato?token={tok_id}&pos={p_slug}",
                         "expira_en": "48h 00m",
                         "estado": "No utilizado"
                     }
@@ -331,13 +331,31 @@ with col_links:
             use_container_width=True
         )
 
+        st.info("💡 **Acceso a Entrevistas en Localhost (`localhost:8501`):** Cada enlace a continuación está configurado para ejecutarse en tu servidor local de Streamlit. Haz clic en **'🚀 Abrir Entrevista en Localhost'** para probar la experiencia del candidato, o navega en el menú lateral a **'6 Portal Candidato'**.")
+
         st.markdown(f"**Tokens Activos ({len(current_links)}):**")
         for idx, l in enumerate(current_links):
             with st.container():
                 c_info, c_badge = st.columns([8, 4])
                 with c_info:
                     st.markdown(f"👤 **{l['candidato']}** · `{l['email']}`")
-                    st.code(l["url"], language="text")
+                    # Normalizar a localhost si el enlace guardado tiene syntropic.ai
+                    raw_url = l.get("url", "")
+                    tok_id = l.get("token", "")
+                    p_slug = titulo_puesto.lower().replace(" ", "-")[:16]
+                    if not tok_id and "tok_" in raw_url:
+                        tok_id = "tok_" + raw_url.split("tok_")[1].split("?")[0]
+                    local_url = f"http://localhost:8501/Portal_Candidato?token={tok_id}&pos={p_slug}" if tok_id else raw_url.replace("https://syntropic.ai/interview/", "http://localhost:8501/Portal_Candidato?token=")
+                    
+                    st.code(local_url, language="text")
+                    st.markdown(f"""
+                    <div style="margin-top: 4px; margin-bottom: 8px;">
+                        <a href="{local_url}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: #0066FF; color: white; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                            🚀 Abrir Entrevista de {l['candidato']} en Localhost ↗
+                        </a>
+                        <span style="font-size: 0.72rem; color: #64748B; margin-left: 8px;">Abre la pestaña del aspirante en tu navegador</span>
+                    </div>
+                    """, unsafe_allow_html=True)
                 with c_badge:
                     badge_color = "#16A34A" if l.get('estado') == "Completado" else ("#D97706" if l.get('estado') == "En progreso" else "#2563EB")
                     st.markdown(f"<div style='text-align:right;'><span style='color:{badge_color}; font-weight:700; font-size:0.8rem;'>● {l.get('estado', 'No utilizado')}</span><br><span style='font-size:0.75rem; color:#64748B;'>Expira: {l.get('expira_en', '48h 00m')}</span></div>", unsafe_allow_html=True)

@@ -4,14 +4,20 @@ Simulador de sesión en tiempo real con Agente de IA, transcripción y evaluaci�
 """
 
 import streamlit as st
-from auth.session import require_auth, render_sidebar_header, ROLE_SUPERADMIN, ROLE_TALENT_LEAD, ROLE_RECRUITER, ROLE_HIRING_MANAGER, ROLE_INTERVIEWER
+from auth.session import require_auth, render_sidebar_header, ROLE_SUPERADMIN, ROLE_TALENT_LEAD, ROLE_RECRUITER, ROLE_HIRING_MANAGER, ROLE_INTERVIEWER, ROLE_CANDIDATE
 from services.api_client import api
 
 st.set_page_config(page_title="Syntropic - Sala de Entrevista Interactiva", page_icon="🎙️", layout="wide")
-require_auth([ROLE_SUPERADMIN, ROLE_TALENT_LEAD, ROLE_RECRUITER, ROLE_HIRING_MANAGER, ROLE_INTERVIEWER])
+require_auth([ROLE_SUPERADMIN, ROLE_TALENT_LEAD, ROLE_RECRUITER, ROLE_HIRING_MANAGER, ROLE_INTERVIEWER, ROLE_CANDIDATE])
 render_sidebar_header()
 
 session_data = api.get_interview_session("default")
+
+# Usar nombre y puesto dinámico si el candidato ingresó desde el Portal del Candidato
+active_cand_name = st.session_state.get("active_candidate_name", session_data.get("candidata_nombre", "Sofía Valenzuela"))
+active_pos_title = st.session_state.get("active_position_title", session_data.get("posicion_titulo", "Senior Full Stack Developer"))
+session_data["candidata_nombre"] = active_cand_name
+session_data["posicion_titulo"] = active_pos_title
 
 # Header de la Sesión de Entrevista
 h_col1, h_col2 = st.columns([7, 5])

@@ -108,7 +108,7 @@ export const PosicionesView: React.FC<PosicionesViewProps> = ({
               email,
               posicion_code: pSlug,
               token: tok,
-              url: `https://syntropic.ai/interview/${tok}?pos=${pSlug}`,
+              url: `http://localhost:8501/Portal_Candidato?token=${tok}&pos=${pSlug}`,
               expira_en: '48h 00m',
               estado: 'No utilizado',
               creado: 'Recién cargado'
@@ -149,7 +149,7 @@ export const PosicionesView: React.FC<PosicionesViewProps> = ({
       email: manualEmail.trim(),
       posicion_code: pSlug,
       token: tok,
-      url: `https://syntropic.ai/interview/${tok}?pos=${pSlug}`,
+      url: `http://localhost:8501/Portal_Candidato?token=${tok}&pos=${pSlug}`,
       expira_en: '48h 00m',
       estado: 'No utilizado',
       creado: 'Recién generado'
@@ -699,18 +699,28 @@ export const PosicionesView: React.FC<PosicionesViewProps> = ({
               </div>
               <div className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 flex items-center text-xs font-mono text-slate-700 truncate">
                 <span className="material-symbols-outlined text-[16px] text-slate-400 mr-2 shrink-0">link</span>
-                <span className="truncate">https://syntropic.ai/interview/tok_9482_f839a?pos=s-fullstack</span>
+                <span className="truncate">http://localhost:8501/Portal_Candidato?token=tok_9482_f839a&pos=s-fullstack</span>
               </div>
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className={`w-full py-2.5 px-4 rounded-lg text-xs font-bold text-white transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer ${copied ? 'bg-emerald-600' : 'bg-blue-600 hover:bg-blue-700'}`}
-              >
-                <span className="material-symbols-outlined text-[17px]">
-                  {copied ? 'check' : 'content_copy'}
-                </span>
-                <span>{copied ? '¡Enlace Copiado al Portapapeles!' : 'Copiar Enlace Seguro'}</span>
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold text-white transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer ${copied ? 'bg-emerald-600' : 'bg-slate-800 hover:bg-slate-900'}`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    {copied ? 'check' : 'content_copy'}
+                  </span>
+                  <span>{copied ? '¡Copiado!' : 'Copiar Enlace'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('portal_candidato')}
+                  className="py-2 px-3 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  <span>Probar Entrevista</span>
+                </button>
+              </div>
             </div>
 
             {/* Link Inventory List */}
@@ -747,7 +757,7 @@ export const PosicionesView: React.FC<PosicionesViewProps> = ({
                   <div className="grid grid-cols-12 px-3 py-2 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     <div className="col-span-5">Candidato / Destino</div>
                     <div className="col-span-3 text-center">Expiración</div>
-                    <div className="col-span-4 text-right">Estado</div>
+                    <div className="col-span-4 text-right">Acción / Estado</div>
                   </div>
 
                   {lotCandidates.map(l => (
@@ -759,7 +769,16 @@ export const PosicionesView: React.FC<PosicionesViewProps> = ({
                       <div className="col-span-3 text-center text-[10px] font-mono text-slate-600">
                         {l.expira_en}
                       </div>
-                      <div className="col-span-4 flex justify-end">
+                      <div className="col-span-4 flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('portal_candidato')}
+                          className="px-2 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 text-[10px] font-bold flex items-center gap-0.5 cursor-pointer"
+                          title="Abrir vista de entrevista del candidato"
+                        >
+                          <span className="material-symbols-outlined text-[13px]">play_circle</span>
+                          <span>Entrevista</span>
+                        </button>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${l.estado === 'Completado' ? 'bg-emerald-50 text-emerald-700' : (l.estado === 'En progreso' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700')}`}>
                           {l.estado}
                         </span>
