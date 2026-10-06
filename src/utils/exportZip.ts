@@ -235,59 +235,116 @@ with col_links:
 
     candidates_file = st.file_uploader(
         "Subir archivo de postulantes (.CSV o .XLSX)",
-        type=["csv", "xlsx"],
+        type=["csv", "xlsx", "txt"],
         key="uploader_cands_file"
     )
 
+    import io
+    import csv
     import time
     import secrets
-    import pandas as pd
     from auth.session import save_position_candidates_bulk
 
-    if candidates_file:
-        try:
-            if candidates_file.name.endswith(".csv"):
-                df_cands = pd.read_csv(candidates_file)
-            else:
-                df_cands = pd.read_excel(candidates_file)
-            
-            df_cands.columns = [c.strip().lower() for c in df_cands.columns]
-            new_generated = []
-            for _, row in df_cands.iterrows():
-                if "nombre" in row and "apellido" in row:
-                    full_name = f"{str(row['nombre']).strip()} {str(row['apellido']).strip()}"
-                elif "candidato" in row:
-                    full_name = str(row["candidato"]).strip()
-                elif "nombre_completo" in row:
-                    full_name = str(row["nombre_completo"]).strip()
-                else:
-                    full_name = "Candidato Postulante"
-                
-                email_val = str(row.get("email", row.get("correo", ""))).strip()
-                if email_val and "@" in email_val and not email_val.startswith("nan"):
-                    token_id = f"tok_{secrets.token_hex(4)}_{int(time.time()) % 10000}"
-                    pos_slug = titulo_puesto.lower().replace(" ", "-")[:16]
-                    link_obj = {
-                        "candidato": full_name,
-                        "email": email_val,
-                        "token": token_id,
-                        "url": f"https://syntropic.ai/interview/{token_id}?pos={pos_slug}",
-                        "expira_en": "48h 00m",
-                        "estado": "No utilizado"
-                    }
-                    new_generated.append(link_obj)
+    def parse_candidates_stream(raw_bytes, filename=""):
+        if filename.endswith(".xlsx"):
+            try:
+                import pandas as pd
+                df = pd.read_excel(io.BytesIO(raw_bytes))
+                df.columns = [str(c).strip().lower() for c in df.columns]
+                parsed = []
+                for _, r in df.iterrows():
+                    nom = str(r.get("nombre", "")).strip()
+                    ape = str(r.get("apellido", "")).strip()
+                    full = f"{nom} {ape}".strip() if (nom and ape) else str(r.get("candidato", r.get("nombre_completo", ""))).strip()
+                    email = ""
+                    for col in df.columns:
+                        val = str(r[col]).strip()
+                        if "@" in val and not val.startswith("nan"):
+                            email = val
+                            break
+                    if email and not full:
+                        full = email.split("@")[0].capitalize()
+                    if email:
+                        parsed.append({"candidato": full, "email": email})
+                return parsed, None
+            except Exception as e:
+                return [], f"Error al leer Excel: {e}"
 
-            if new_generated:
-                existing_emails = {c["email"].lower() for c in st.session_state[pos_session_key]}
-                to_add = [c for c in new_generated if c["email"].lower() not in existing_emails]
-                if to_add:
-                    st.session_state[pos_session_key].extend(to_add)
-                    save_position_candidates_bulk(titulo_puesto, to_add, tenant_name=current_tenant_name)
-                    st.success(f"✓ ¡Se cargaron y guardaron {len(to_add)} postulantes en SQLite!")
-                else:
-                    st.info("Todos los postulantes del archivo ya estaban cargados en este puesto.")
+        text = ""
+        for enc in ["utf-8-sig", "utf-8", "latin-1", "cp1252"]:
+            try:
+                text = raw_bytes.decode(enc)
+                break
+            except Exception:
+                continue
+
+        if not text:
+            return [], "No se pudo decodificar el archivo."
+
+        first_line = text.strip().split("\\n")[0]
+        delim = ";" if ";" in first_line and first_line.count(";") >= first_line.count(",") else ","
+        if "\\t" in first_line and first_line.count("\\t") > first_line.count(delim):
+            delim = "\\t"
+
+        try:
+            reader = csv.reader(io.StringIO(text), delimiter=delim)
+            rows = [r for r in reader if any(field.strip() for field in r)]
+            if not rows:
+                return [], "El archivo está vacío."
+
+            headers = [h.strip().lower() for h in rows[0]]
+            parsed = []
+
+            for row in rows[1:]:
+                row_dict = {headers[i]: row[i].strip() for i in range(min(len(headers), len(row)))}
+                nom = row_dict.get("nombre", "")
+                ape = row_dict.get("apellido", "")
+                full = f"{nom} {ape}".strip() if (nom or ape) else row_dict.get("candidato", row_dict.get("nombre_completo", ""))
+                email = ""
+                for k, v in row_dict.items():
+                    if "@" in v:
+                        email = v
+                        break
+                if not full and email:
+                    full = email.split("@")[0].replace(".", " ").capitalize()
+                if email:
+                    parsed.append({"candidato": full or "Candidato", "email": email})
+
+            return parsed, None
         except Exception as e:
-            st.error(f"Error al procesar el archivo: {e}")
+            return [], f"Error al interpretar formato CSV: {e}"
+
+    if candidates_file:
+        raw_data = candidates_file.getvalue()
+        extracted_cands, parse_err = parse_candidates_stream(raw_data, filename=candidates_file.name.lower())
+
+        if parse_err:
+            st.error(parse_err)
+        elif not extracted_cands:
+            st.warning("⚠️ No se encontraron filas con correos válidos (@). Verifica las columnas de tu archivo.")
+        else:
+            new_generated = []
+            pos_slug = titulo_puesto.lower().replace(" ", "-")[:16]
+            for item in extracted_cands:
+                token_id = f"tok_{secrets.token_hex(4)}_{int(time.time()) % 10000}"
+                new_generated.append({
+                    "candidato": item["candidato"],
+                    "email": item["email"],
+                    "token": token_id,
+                    "url": f"https://syntropic.ai/interview/{token_id}?pos={pos_slug}",
+                    "expira_en": "48h 00m",
+                    "estado": "No utilizado"
+                })
+
+            existing_emails = {c["email"].lower() for c in st.session_state[pos_session_key]}
+            to_add = [c for c in new_generated if c["email"].lower() not in existing_emails]
+
+            if to_add:
+                st.session_state[pos_session_key].extend(to_add)
+                save_position_candidates_bulk(titulo_puesto, to_add, tenant_name=current_tenant_name)
+                st.success(f"✓ ¡Se procesaron {len(to_add)} postulantes desde '{candidates_file.name}'!")
+                time.sleep(0.3)
+                st.rerun()
 
     with st.expander("➕ O agregar postulante manual"):
         with st.form("form_add_single_candidate"):
@@ -318,15 +375,25 @@ with col_links:
     if not current_links:
         st.info("ℹ️ Aún no has cargado postulantes para esta posición. Descarga la plantilla CSV arriba o agrega candidatos para generar sus enlaces únicos.")
     else:
+        report_lines = ["candidato,email,enlace_entrevista,token,expiracion,estado"]
+        for l in current_links:
+            report_lines.append(f'\\"{l["candidato"]}\\",\\"{l["email"]}\\",\\"{l["url"]}\\",\\"{l["token"]}\\",\\"{l.get("expira_en", "48h 00m")}\\",\\"{l.get("estado", "No utilizado")}\\"')
+        report_csv = "\\n".join(report_lines)
+        
+        st.download_button(
+            label="📥 Descargar Lista de Enlaces Generados (.CSV)",
+            data=report_csv,
+            file_name=f"enlaces_entrevista_{titulo_puesto.lower().replace(' ', '_')[:15]}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+
+        st.markdown(f"**Tokens Activos ({len(current_links)}):**")
         for idx, l in enumerate(current_links):
-            c_name, c_exp, c_status = st.columns([5, 3, 4])
-            with c_name:
-                st.markdown(f"**{l['candidato']}**<br><span style='font-size:0.75rem;color:#64748B;'>{l['email']}</span>", unsafe_allow_html=True)
-            with c_exp:
-                st.code(l.get('expira_en', '48h 00m'))
-            with c_status:
-                badge_color = "#16A34A" if l.get('estado') == "Completado" else ("#D97706" if l.get('estado') == "En progreso" else "#2563EB")
-                st.markdown(f"<span style='color:{badge_color}; font-size:0.8rem; font-weight:600;'>{l.get('estado', 'No utilizado')}</span>", unsafe_allow_html=True)
+            st.markdown(f"👤 **{l['candidato']}** · \`{l['email']}\`")
+            st.code(l["url"], language="text")
+            st.caption(f"● {l.get('estado', 'No utilizado')} · Expira: {l.get('expira_en', '48h 00m')}")
+            st.markdown("<hr style='margin: 0.5rem 0; border: none; border-top: 1px dashed #E2E8F0;' />", unsafe_allow_html=True)
 
         if st.button(f"✉️ Enviar {len(current_links)} Invitaciones Masivas por Correo", use_container_width=True):
             st.success(f"¡Se han despachado {len(current_links)} invitaciones tokenizadas por email a los postulantes de Franja Automations!")
